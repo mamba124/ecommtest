@@ -1,0 +1,167 @@
+"""
+Scraper utility — fetches Anthropic documentation pages and saves them as Markdown.
+
+URL discovery strategy (in order):
+  1. Request /sitemap.xml → parse every <loc> that starts with ALLOWED_PREFIX.
+  2. If sitemap is absent or yields no matching URLs, fall back to BFS link-following
+     starting from the root docs page.
+"""
+import logging
+import time
+from pathlib import Path
+from urllib.parse import urljoin, urlparse
+from xml.etree import ElementTree
+
+import httpx
+from bs4 import BeautifulSoup
+import html2text
+
+logger = logging.getLogger("scraper")
+
+REQUEST_DELAY = 0.5          # seconds between requests
+ALLOWED_PREFIX = "/en/docs/"
+SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
+
+
+class DocScraper:
+    def __init__(self, base_url: str, output_dir: str, max_pages: int = 50) -> None:
+        self._base_url = base_url.rstrip("/")
+        self._output_dir = Path(output_dir)
+        self._max_pages = max_pages
+        self._visited: set[str] = set()
+        self._converter = html2text.HTML2Text()
+        self._converter.ignore_links = False
+        self._converter.body_width = 0
+
+    # ── URL discovery ─────────────────────────────────────────────────────────
+
+    def _fetch_sitemap(self, client: httpx.Client) -> list[str]:
+        """
+        GET /sitemap.xml and return all <loc> URLs that fall under ALLOWED_PREFIX.
+        Returns an empty list if the sitemap is missing, malformed, or contains
+        no matching entries — caller should then fall back to link-following.
+        """
+        sitemap_url = f"{self._base_url}/sitemap.xml"
+        try:
+            resp = client.get(sitemap_url, timeout=15.0)
+            resp.raise_for_status()
+        except Exception as exc:
+            logger.warning(f"Sitemap not available at {sitemap_url}: {exc}")
+            return []
+
+        try:
+            root = ElementTree.fromstring(resp.text)
+        except ElementTree.ParseError as exc:
+            logger.warning(f"Failed to parse sitemap XML: {exc}")
+            return []
+
+        base_netloc = urlparse(self._base_url).netloc
+        urls: list[str] = []
+
+        # Handle both <urlset> and <sitemapindex> (index of sitemaps)
+        for tag in root.iter(f"{{{SITEMAP_NS}}}loc"):
+            loc = tag.text.strip() if tag.text else ""
+            parsed = urlparse(loc)
+            if parsed.netloc == base_netloc and parsed.path.startswith(ALLOWED_PREFIX):
+                clean = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                urls.append(clean)
+
+        logger.info(f"Sitemap yielded {len(urls)} matching URLs under {ALLOWED_PREFIX}")
+        return urls
+
+    def _find_links(self, html: str, current_url: str) -> list[str]:
+        """Extract internal /en/docs/ links from a page (used as fallback)."""
+        soup = BeautifulSoup(html, "html.parser")
+        base_netloc = urlparse(self._base_url).netloc
+        links: list[str] = []
+        for tag in soup.find_all("a", href=True):
+            absolute = urljoin(current_url, tag["href"])
+            parsed = urlparse(absolute)
+            if parsed.netloc == base_netloc and parsed.path.startswith(ALLOWED_PREFIX):
+                links.append(f"{parsed.scheme}://{parsed.netloc}{parsed.path}")
+        return links
+
+    # ── Content extraction ────────────────────────────────────────────────────
+
+    def _slug(self, url: str) -> str:
+        path = urlparse(url).path.strip("/").replace("/", "_")
+        return path or "index"
+
+    def _extract_content(self, html: str) -> str:
+        soup = BeautifulSoup(html, "html.parser")
+        content = soup.find("article") or soup.find("main") or soup.body
+        if content is None:
+            return ""
+        return self._converter.handle(str(content))
+
+    # ── robots.txt ────────────────────────────────────────────────────────────
+
+    def _robots_ok(self, client: httpx.Client) -> bool:
+        try:
+            resp = client.get(f"{self._base_url}/robots.txt", timeout=10.0)
+            if f"Disallow: {ALLOWED_PREFIX}" in resp.text:
+                logger.warning("robots.txt disallows scraping /en/docs")
+                return False
+        except Exception:
+            pass
+        return True
+
+    # ── Main entry point ──────────────────────────────────────────────────────
+
+    def scrape(self) -> int:
+        """
+        Scrape docs and return number of pages saved.
+
+        Discovery order:
+          1. /sitemap.xml  — parse <loc> entries matching ALLOWED_PREFIX.
+          2. BFS fallback  — follow <a href> links starting from the root page.
+        """
+        self._output_dir.mkdir(parents=True, exist_ok=True)
+        saved = 0
+
+        with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+            if not self._robots_ok(client):
+                logger.error("Scraping aborted per robots.txt")
+                return 0
+
+            # Step 1 — try sitemap
+            sitemap_urls = self._fetch_sitemap(client)
+
+            if sitemap_urls:
+                queue = sitemap_urls[:self._max_pages]
+                logger.info(
+                    f"Using sitemap strategy: {len(queue)} URLs queued "
+                    f"(max_pages={self._max_pages})"
+                )
+            else:
+                # Step 2 — fall back to BFS from root
+                queue = [f"{self._base_url}{ALLOWED_PREFIX}"]
+                logger.info("Sitemap unavailable — falling back to BFS link-following")
+
+            while queue and len(self._visited) < self._max_pages:
+                url = queue.pop(0)
+                if url in self._visited:
+                    continue
+                self._visited.add(url)
+
+                try:
+                    resp = client.get(url)
+                    resp.raise_for_status()
+                    content = self._extract_content(resp.text)
+                    out = self._output_dir / f"{self._slug(url)}.md"
+                    out.write_text(content, encoding="utf-8")
+                    saved += 1
+                    logger.info(f"Saved {url} → {out}")
+
+                    # In BFS fallback mode, also discover links from each fetched page
+                    if not sitemap_urls:
+                        for link in self._find_links(resp.text, url):
+                            if link not in self._visited:
+                                queue.append(link)
+
+                    time.sleep(REQUEST_DELAY)
+                except Exception as exc:
+                    logger.error(f"Failed to scrape {url}: {exc}")
+
+        logger.info(f"Scraping complete: {saved} pages saved to {self._output_dir}")
+        return saved

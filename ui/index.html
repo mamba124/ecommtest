@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAG Service</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #222639;
+      --border: #2e3250;
+      --accent: #6c63ff;
+      --accent-hover: #8880ff;
+      --text: #e2e4f0;
+      --text-muted: #7b82a8;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --error: #f87171;
+      --pill-bg: #2a2f52;
+      --pill-text: #a5b4fc;
+      --radius: 10px;
+      --font: 'Inter', system-ui, -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    [data-theme="light"] {
+      --bg: #f4f5fb;
+      --surface: #ffffff;
+      --surface2: #eef0f8;
+      --border: #d1d5f0;
+      --accent: #5b52e8;
+      --accent-hover: #4740d6;
+      --text: #1a1d2e;
+      --text-muted: #5a6080;
+      --pill-bg: #e0e3ff;
+      --pill-text: #4740d6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .logo { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.5px; }
+    .logo span { color: var(--accent); }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .tabs { display: flex; gap: 4px; }
+    .tab {
+      padding: 6px 16px; border-radius: 6px; cursor: pointer;
+      font-size: 0.875rem; font-weight: 500; border: none;
+      background: transparent; color: var(--text-muted);
+      transition: background 0.15s, color 0.15s;
+    }
+    .tab.active { background: var(--accent); color: #fff; }
+    .tab:hover:not(.active) { background: var(--surface2); color: var(--text); }
+
+    /* ── Theme toggle ── */
+    .theme-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--surface2); cursor: pointer; font-size: 1rem;
+      display: flex; align-items: center; justify-content: center; color: var(--text);
+    }
+
+    /* ── Main layout ── */
+    main { flex: 1; max-width: 860px; width: 100%; margin: 0 auto; padding: 32px 24px; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Input area ── */
+    .input-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    textarea {
+      width: 100%; padding: 16px; border: none; background: transparent;
+      color: var(--text); font-family: var(--font); font-size: 0.95rem;
+      resize: none; min-height: 90px; outline: none;
+    }
+    .input-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; border-top: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .input-opts { display: flex; align-items: center; gap: 12px; }
+    label.toggle { display: flex; align-items: center; gap: 6px; font-size: 0.825rem; color: var(--text-muted); cursor: pointer; }
+    input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; }
+    .send-btn {
+      padding: 8px 20px; border-radius: 6px; border: none;
+      background: var(--accent); color: #fff; font-size: 0.875rem; font-weight: 600;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .send-btn:hover { background: var(--accent-hover); }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Answer card ── */
+    .answer-card {
+      margin-top: 24px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;
+      display: none;
+    }
+    .answer-card.visible { display: block; }
+    .answer-label {
+      font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 10px;
+    }
+    .answer-text {
+      font-size: 0.95rem; line-height: 1.7; white-space: pre-wrap;
+      font-family: var(--mono);
+    }
+    .cursor {
+      display: inline-block; width: 2px; height: 1em;
+      background: var(--accent); animation: blink 0.7s step-end infinite;
+      vertical-align: text-bottom; margin-left: 1px;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── Citations ── */
+    .citations { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .citation-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--pill-bg); color: var(--pill-text);
+      border-radius: 20px; padding: 4px 12px; font-size: 0.775rem; font-weight: 500;
+      cursor: default; user-select: none;
+    }
+    .citation-pill .score { opacity: 0.7; }
+
+    /* ── Cache badge ── */
+    .cache-badge {
+      display: inline-block; background: var(--warning);
+      color: #1a1a1a; font-size: 0.7rem; font-weight: 700; padding: 2px 8px;
+      border-radius: 20px; margin-left: 8px; vertical-align: middle;
+    }
+
+    /* ── Research panel ── */
+    .research-input-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); display: flex; gap: 0;
+    }
+    .research-input {
+      flex: 1; padding: 14px 16px; border: none; background: transparent;
+      color: var(--text); font-family: var(--font); font-size: 0.95rem; outline: none;
+    }
+    .research-btn {
+      padding: 0 24px; border-radius: 0 var(--radius) var(--radius) 0;
+      border: none; background: var(--accent); color: #fff;
+      font-size: 0.875rem; font-weight: 600; cursor: pointer;
+    }
+    .research-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .report-card {
+      margin-top: 24px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius); padding: 24px;
+      display: none;
+    }
+    .report-card.visible { display: block; }
+    .report-body { line-height: 1.75; font-size: 0.95rem; }
+    .report-body h1, .report-body h2, .report-body h3 {
+      margin: 1.2em 0 0.4em; color: var(--text);
+    }
+    .report-body p { margin-bottom: 0.75em; }
+    .report-body ul, .report-body ol { padding-left: 1.5em; margin-bottom: 0.75em; }
+    .report-body code {
+      background: var(--surface2); padding: 1px 6px;
+      border-radius: 4px; font-family: var(--mono); font-size: 0.88em;
+    }
+
+    .gaps-section { margin-top: 20px; }
+    .gap-item {
+      background: var(--surface2); border-left: 3px solid var(--warning);
+      padding: 10px 14px; border-radius: 0 6px 6px 0; margin-bottom: 8px;
+      font-size: 0.875rem;
+    }
+    .gap-q { font-weight: 600; margin-bottom: 4px; }
+    .gap-reason { color: var(--text-muted); }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: none; align-items: center; gap: 10px;
+      color: var(--text-muted); font-size: 0.875rem; margin-top: 16px;
+    }
+    .spinner.active { display: flex; }
+    .spin {
+      width: 18px; height: 18px; border: 2px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error ── */
+    .error-msg {
+      margin-top: 12px; padding: 10px 14px; background: #3b1212;
+      border: 1px solid var(--error); border-radius: 6px;
+      color: var(--error); font-size: 0.875rem; display: none;
+    }
+    .error-msg.visible { display: block; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">RAG <span>Service</span></div>
+    <div class="header-right">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('query', this)">Ask</button>
+        <button class="tab" onclick="switchTab('research', this)">Research</button>
+      </div>
+      <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">&#9788;</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ── Ask panel ── -->
+    <div id="panel-query" class="panel active">
+      <div class="input-wrap">
+        <textarea id="question" placeholder="Ask a question about the ingested documents…" rows="3"></textarea>
+        <div class="input-footer">
+          <div class="input-opts">
+            <label class="toggle">
+              <input type="checkbox" id="stream-toggle" />
+              Stream tokens
+            </label>
+          </div>
+          <button class="send-btn" id="ask-btn" onclick="askQuestion()">Ask</button>
+        </div>
+      </div>
+
+      <div class="spinner" id="ask-spinner">
+        <div class="spin"></div> Thinking…
+      </div>
+      <div class="error-msg" id="ask-error"></div>
+
+      <div class="answer-card" id="answer-card">
+        <div class="answer-label">
+          Answer
+          <span class="cache-badge" id="cache-badge" style="display:none">cached</span>
+        </div>
+        <div class="answer-text" id="answer-text"></div>
+        <div class="citations" id="citations"></div>
+      </div>
+    </div>
+
+    <!-- ── Research panel ── -->
+    <div id="panel-research" class="panel">
+      <div class="research-input-wrap">
+        <input class="research-input" id="topic" placeholder="Enter a research topic…" />
+        <button class="research-btn" id="research-btn" onclick="doResearch()">Research</button>
+      </div>
+
+      <div class="spinner" id="research-spinner">
+        <div class="spin"></div> Researching — this may take a minute…
+      </div>
+      <div class="error-msg" id="research-error"></div>
+
+      <div class="report-card" id="report-card">
+        <div class="answer-label">Report</div>
+        <div class="report-body" id="report-body"></div>
+        <div class="gaps-section" id="gaps-section"></div>
+        <div class="citations" id="research-citations"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function setLoading(id, active) {
+      document.getElementById(id).classList.toggle('active', active);
+    }
+    function showError(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.classList.add('visible');
+    }
+    function clearError(id) {
+      document.getElementById(id).classList.remove('visible');
+    }
+
+    function renderCitations(citations, containerId) {
+      const el = document.getElementById(containerId);
+      el.innerHTML = '';
+      citations.forEach(c => {
+        const pill = document.createElement('span');
+        pill.className = 'citation-pill';
+        const src = c.source ? c.source.split('/').pop() : c.chunk_id;
+        const page = c.page ? ` p.${c.page}` : '';
+        const score = c.score != null ? ` <span class="score">${(c.score * 100).toFixed(0)}%</span>` : '';
+        pill.innerHTML = `[${c.chunk_id}] ${src}${page}${score}`;
+        pill.title = `source: ${c.source || ''}`;
+        el.appendChild(pill);
+      });
+    }
+
+    // Minimal Markdown → HTML (headings, bold, code, lists)
+    function mdToHtml(md) {
+      return md
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+        .replace(/\n{2,}/g, '</p><p>')
+        .replace(/^(?!<[hlu])(.+)$/gm, '<p>$1</p>');
+    }
+
+    // ── Tab switching ────────────────────────────────────────────────────────
+
+    function switchTab(name, btn) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('panel-' + name).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    // ── Theme ────────────────────────────────────────────────────────────────
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      document.documentElement.setAttribute('data-theme', current === 'light' ? 'dark' : 'light');
+    }
+
+    // ── Ask ──────────────────────────────────────────────────────────────────
+
+    async function askQuestion() {
+      const q = document.getElementById('question').value.trim();
+      if (!q) return;
+      const streaming = document.getElementById('stream-toggle').checked;
+      const btn = document.getElementById('ask-btn');
+
+      clearError('ask-error');
+      document.getElementById('answer-card').classList.remove('visible');
+      setLoading('ask-spinner', true);
+      btn.disabled = true;
+
+      try {
+        if (streaming) {
+          await askStreaming(q);
+        } else {
+          await askNormal(q);
+        }
+      } catch (e) {
+        showError('ask-error', e.message || 'Request failed');
+      } finally {
+        setLoading('ask-spinner', false);
+        btn.disabled = false;
+      }
+    }
+
+    async function askNormal(q) {
+      const resp = await fetch('/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q, stream: false }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.detail || resp.statusText);
+      }
+      const data = await resp.json();
+      document.getElementById('answer-text').textContent = data.answer;
+      document.getElementById('cache-badge').style.display = data.from_cache ? 'inline-block' : 'none';
+      renderCitations(data.citations || [], 'citations');
+      document.getElementById('answer-card').classList.add('visible');
+    }
+
+    async function askStreaming(q) {
+      const card = document.getElementById('answer-card');
+      const textEl = document.getElementById('answer-text');
+      textEl.textContent = '';
+      card.classList.add('visible');
+      document.getElementById('cache-badge').style.display = 'none';
+
+      const cursor = document.createElement('span');
+      cursor.className = 'cursor';
+      textEl.appendChild(cursor);
+
+      const resp = await fetch('/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q, stream: true }),
+      });
+      if (!resp.ok) throw new Error(resp.statusText);
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = JSON.parse(line.slice(6));
+          if (payload.token != null) {
+            textEl.insertBefore(document.createTextNode(payload.token), cursor);
+          }
+          if (payload.done) {
+            cursor.remove();
+            renderCitations(payload.citations || [], 'citations');
+          }
+        }
+      }
+      cursor.remove();
+      setLoading('ask-spinner', false);
+    }
+
+    // ── Research ─────────────────────────────────────────────────────────────
+
+    async function doResearch() {
+      const topic = document.getElementById('topic').value.trim();
+      if (!topic) return;
+      const btn = document.getElementById('research-btn');
+
+      clearError('research-error');
+      document.getElementById('report-card').classList.remove('visible');
+      setLoading('research-spinner', true);
+      btn.disabled = true;
+
+      try {
+        const resp = await fetch('/research', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic }),
+        });
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.detail || resp.statusText);
+        }
+        const data = await resp.json();
+
+        document.getElementById('report-body').innerHTML = mdToHtml(data.report || '');
+
+        const gapsEl = document.getElementById('gaps-section');
+        gapsEl.innerHTML = '';
+        if (data.gaps && data.gaps.length) {
+          const title = document.createElement('div');
+          title.className = 'answer-label';
+          title.style.marginTop = '20px';
+          title.textContent = 'Knowledge Gaps';
+          gapsEl.appendChild(title);
+          data.gaps.forEach(g => {
+            const div = document.createElement('div');
+            div.className = 'gap-item';
+            div.innerHTML = `<div class="gap-q">${g.sub_question}</div><div class="gap-reason">${g.reason}</div>`;
+            gapsEl.appendChild(div);
+          });
+        }
+
+        renderCitations(data.all_citations || [], 'research-citations');
+        document.getElementById('report-card').classList.add('visible');
+      } catch (e) {
+        showError('research-error', e.message || 'Research failed');
+      } finally {
+        setLoading('research-spinner', false);
+        btn.disabled = false;
+      }
+    }
+
+    // ── Keyboard shortcuts ───────────────────────────────────────────────────
+
+    document.getElementById('question').addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') askQuestion();
+    });
+    document.getElementById('topic').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doResearch();
+    });
+  </script>
+</body>
+</html>
