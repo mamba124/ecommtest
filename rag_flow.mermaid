@@ -1,0 +1,76 @@
+flowchart LR
+    subgraph INGEST["📥 INGEST FLOW"]
+        direction TB
+        A["📁 Folder of .pdf / .md / .txt"]
+        B["LoaderFactory\n─────────────\nPDF → page by page\nMD  → extract headings\nTXT → raw read"]
+        C["Chunker\n─────────────\nRecursiveCharacterSplitter\n1200 chars / 200 overlap\nstable SHA256 chunk_id"]
+        D["Embedder\n─────────────\nnomic-embed-text via Ollama\nbatches of 32 → 768D vectors"]
+        E[("ChromaDB\nupsert · idempotent")]
+        F["BM25 index\nrebuilt in memory"]
+
+        A --> B --> C --> D --> E
+        E -.-> F
+    end
+
+    subgraph QUERY["🔍 QUERY FLOW"]
+        direction TB
+        G["User Question"]
+        H{{"Redis Cache"}}
+        HIT["Return cached response"]
+        I["Embed question → 768D vector"]
+
+        subgraph HYBRID["Hybrid Retrieval"]
+            J["Vector search\ncosine · top 10"]
+            K["BM25 search\nkeyword · top 10"]
+            L["Fuse scores\n0.7 × vector + 0.3 × BM25"]
+            M["Cross-encoder rerank\n→ top 4 chunks"]
+            J & K --> L --> M
+        end
+
+        N["Build Prompt\n─────────────\nsystem: only use context, cite chunk IDs\nuser: chunks + question"]
+        O["LLM Generate Answer\nllama3.2 / Claude / Gemini"]
+
+        subgraph VERIFY["✅ Verification Pass"]
+            P{{"Is answer fully\nsupported by context?"}}
+            YES["Return answer + citations"]
+            NO["Return INSUFFICIENT_CONTEXT\n🚫 no hallucination passes through"]
+            P -- YES --> YES
+            P -- NO  --> NO
+        end
+
+        Q[("Redis cache\nTTL 3600s")]
+        R["QueryResponse\n{ answer, citations, from_cache }"]
+
+        G --> H
+        H -- HIT --> HIT
+        H -- MISS --> I --> HYBRID --> N --> O --> VERIFY
+        YES --> Q --> R
+    end
+
+    subgraph EVAL["📊 EVALUATION FLOW"]
+        direction TB
+        S["eval_dataset.json\n{ id, type, question,\n  ground_truth_answer,\n  ground_truth_context }"]
+        T["For each question\nPOST /query"]
+        U["chunk_texts = citation.text"]
+
+        subgraph METRICS["5 Metrics"]
+            M1["Context Precision\nfraction of retrieved chunks whose\nwords appear in ground_truth_context"]
+            M2["Context Recall\nfraction of ground_truth_context\nwords found in retrieved chunks"]
+            M3["Faithfulness\nLLM scores: is answer supported\nby chunks? → 0.0 to 1.0"]
+            M4["Answer Relevancy\nLLM generates N paraphrases → \ncosine similarity to original question"]
+            M5["Answer Correctness\nunanswerable → did it refuse? 1.0/0.0\nelse → cosine sim(answer, ground_truth)"]
+        end
+
+        V["Aggregate scores per question"]
+        W["Failure analysis\nflag any metric &lt; 0.5"]
+        X["generate_report()\n→ eval_report.md"]
+
+        S --> T --> U --> METRICS --> V --> W --> X
+    end
+
+    style INGEST fill:#1e3a5f,color:#fff,stroke:#4a90d9
+    style QUERY  fill:#1e3a2f,color:#fff,stroke:#4ad98a
+    style EVAL   fill:#3a1e2f,color:#fff,stroke:#d94a90
+    style HYBRID fill:#0d2a1a,color:#fff,stroke:#2a8a5a
+    style VERIFY fill:#2a1a0d,color:#fff,stroke:#8a5a2a
+    style METRICS fill:#2a0d1a,color:#fff,stroke:#8a2a5a
