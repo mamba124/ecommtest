@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 import httpx
+from sentence_transformers import SentenceTransformer
 
 from app.core.config import EmbeddingsConfig
 
@@ -41,7 +42,6 @@ class SentenceTransformerEmbedder(BaseEmbedder):
     _BATCH_SIZE = 32
 
     def __init__(self, config: EmbeddingsConfig) -> None:
-        from sentence_transformers import SentenceTransformer
         self._model = SentenceTransformer(config.model)
 
     def embed(self, texts: list[str]) -> list[list[float]]:

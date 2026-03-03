@@ -19,19 +19,50 @@ import html2text
 logger = logging.getLogger("scraper")
 
 REQUEST_DELAY = 0.5          # seconds between requests
-ALLOWED_PREFIX = "/en/docs/"
+DEFAULT_ALLOWED_PREFIX = "/en/docs/"
 SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 
 
 class DocScraper:
     def __init__(self, base_url: str, output_dir: str, max_pages: int = 50) -> None:
         self._base_url = base_url.rstrip("/")
+        self._allowed_prefix = DEFAULT_ALLOWED_PREFIX
         self._output_dir = Path(output_dir)
         self._max_pages = max_pages
         self._visited: set[str] = set()
         self._converter = html2text.HTML2Text()
         self._converter.ignore_links = False
         self._converter.body_width = 0
+
+    # ── Redirect resolution ───────────────────────────────────────────────────
+
+    def _resolve_redirect(self, client: httpx.Client) -> None:
+        """
+        Probe the configured base_url + allowed_prefix and follow any permanent
+        redirects (e.g. docs.anthropic.com → platform.claude.com).  Updates
+        self._base_url and self._allowed_prefix in-place so all subsequent
+        netloc/path filters use the real destination domain and path structure.
+        """
+        probe = f"{self._base_url}{self._allowed_prefix}"
+        try:
+            resp = client.head(probe, timeout=10.0)
+            final = str(resp.url)
+            parsed = urlparse(final)
+            orig_netloc = urlparse(self._base_url).netloc
+            if parsed.netloc and parsed.netloc != orig_netloc:
+                self._base_url = f"{parsed.scheme}://{parsed.netloc}"
+                # If the redirect landed on a specific page (no trailing slash),
+                # strip the last path segment to get the docs root directory.
+                path = parsed.path
+                if not path.endswith("/"):
+                    path = path.rsplit("/", 1)[0] + "/"
+                self._allowed_prefix = path
+                logger.info(
+                    f"Redirect resolved: {orig_netloc} → {parsed.netloc} "
+                    f"(new prefix: {self._allowed_prefix})"
+                )
+        except Exception as exc:
+            logger.warning(f"Could not probe redirect for {probe}: {exc}")
 
     # ── URL discovery ─────────────────────────────────────────────────────────
 
@@ -62,22 +93,22 @@ class DocScraper:
         for tag in root.iter(f"{{{SITEMAP_NS}}}loc"):
             loc = tag.text.strip() if tag.text else ""
             parsed = urlparse(loc)
-            if parsed.netloc == base_netloc and parsed.path.startswith(ALLOWED_PREFIX):
+            if parsed.netloc == base_netloc and parsed.path.startswith(self._allowed_prefix):
                 clean = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
                 urls.append(clean)
 
-        logger.info(f"Sitemap yielded {len(urls)} matching URLs under {ALLOWED_PREFIX}")
+        logger.info(f"Sitemap yielded {len(urls)} matching URLs under {self._allowed_prefix}")
         return urls
 
     def _find_links(self, html: str, current_url: str) -> list[str]:
-        """Extract internal /en/docs/ links from a page (used as fallback)."""
+        """Extract internal doc links from a page (used as BFS fallback)."""
         soup = BeautifulSoup(html, "html.parser")
         base_netloc = urlparse(self._base_url).netloc
         links: list[str] = []
         for tag in soup.find_all("a", href=True):
             absolute = urljoin(current_url, tag["href"])
             parsed = urlparse(absolute)
-            if parsed.netloc == base_netloc and parsed.path.startswith(ALLOWED_PREFIX):
+            if parsed.netloc == base_netloc and parsed.path.startswith(self._allowed_prefix):
                 links.append(f"{parsed.scheme}://{parsed.netloc}{parsed.path}")
         return links
 
@@ -99,8 +130,8 @@ class DocScraper:
     def _robots_ok(self, client: httpx.Client) -> bool:
         try:
             resp = client.get(f"{self._base_url}/robots.txt", timeout=10.0)
-            if f"Disallow: {ALLOWED_PREFIX}" in resp.text:
-                logger.warning("robots.txt disallows scraping /en/docs")
+            if f"Disallow: {self._allowed_prefix}" in resp.text:
+                logger.warning(f"robots.txt disallows scraping {self._allowed_prefix}")
                 return False
         except Exception:
             pass
@@ -120,6 +151,9 @@ class DocScraper:
         saved = 0
 
         with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+            # Resolve any permanent redirect on the docs root before filtering
+            self._resolve_redirect(client)
+
             if not self._robots_ok(client):
                 logger.error("Scraping aborted per robots.txt")
                 return 0
@@ -135,7 +169,7 @@ class DocScraper:
                 )
             else:
                 # Step 2 — fall back to BFS from root
-                queue = [f"{self._base_url}{ALLOWED_PREFIX}"]
+                queue = [f"{self._base_url}{self._allowed_prefix}"]
                 logger.info("Sitemap unavailable — falling back to BFS link-following")
 
             while queue and len(self._visited) < self._max_pages:

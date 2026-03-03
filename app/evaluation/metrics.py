@@ -10,11 +10,10 @@ Answer Correctness  Does the generated answer match the ground truth?
 """
 import json
 import math
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.generation.llm import BaseLLM
-    from app.ingestion.embeddings import BaseEmbedder
+from app.generation.llm import BaseLLM
+from app.generation.prompts import FAITHFULNESS_PROMPT, RELEVANCY_PROMPT
+from app.ingestion.embeddings import BaseEmbedder
 
 REFUSAL_PHRASES = [
     "i don't have enough information",
@@ -68,13 +67,12 @@ def context_recall(
 def faithfulness(
     answer: str,
     retrieved_chunks: list[str],
-    llm: "BaseLLM",
+    llm: BaseLLM,
 ) -> float:
     """
     Prompt the LLM to score: does the answer contain only claims
     supported by the retrieved chunks? Returns 0–1.
     """
-    from app.generation.prompts import FAITHFULNESS_PROMPT
     context = "\n---\n".join(retrieved_chunks)
     prompt = FAITHFULNESS_PROMPT.format(context=context, answer=answer)
     raw = llm.generate(prompt).strip()
@@ -87,15 +85,14 @@ def faithfulness(
 def answer_relevancy(
     question: str,
     answer: str,
-    llm: "BaseLLM",
-    embedder: "BaseEmbedder",
+    llm: BaseLLM,
+    embedder: BaseEmbedder,
     n_paraphrases: int = 3,
 ) -> float:
     """
     Prompt the LLM to generate N paraphrases of the question from the answer,
     measure cosine similarity of their embeddings to the original question embedding.
     """
-    from app.generation.prompts import RELEVANCY_PROMPT
     prompt = RELEVANCY_PROMPT.format(answer=answer, n=n_paraphrases)
     raw = llm.generate(prompt)
     try:
@@ -117,7 +114,7 @@ def answer_relevancy(
 def answer_correctness(
     answer: str,
     ground_truth: str,
-    embedder: "BaseEmbedder",
+    embedder: BaseEmbedder,
 ) -> float:
     """
     For unanswerable: 1.0 if answer contains refusal phrase, 0.0 otherwise.

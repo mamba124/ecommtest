@@ -32,11 +32,16 @@ class VectorStore:
         )
 
     def upsert(self, chunks: list[Chunk], embeddings: list[list[float]]) -> None:
+        # ChromaDB rejects None metadata values; drop them before upsert.
+        clean_meta = [
+            {k: v for k, v in c.metadata.items() if v is not None}
+            for c in chunks
+        ]
         self._collection.upsert(
             ids=[c.chunk_id for c in chunks],
             embeddings=embeddings,
             documents=[c.text for c in chunks],
-            metadatas=[c.metadata for c in chunks],
+            metadatas=clean_meta,
         )
 
     def query(self, query_embedding: list[float], top_k: int) -> list[RetrievedChunk]:

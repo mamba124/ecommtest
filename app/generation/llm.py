@@ -9,6 +9,10 @@ import os
 from abc import ABC, abstractmethod
 from typing import Iterator
 
+import anthropic
+import google.generativeai as genai
+import ollama as ollama_sdk
+
 from app.core.config import Config
 
 logger = logging.getLogger("llm")
@@ -26,8 +30,7 @@ class BaseLLM(ABC):
 
 class OllamaLLM(BaseLLM):
     def __init__(self, config) -> None:
-        import ollama
-        self._client = ollama.Client(host=config.base_url)
+        self._client = ollama_sdk.Client(host=config.base_url)
         self._model = config.model
         self._options = {
             "temperature": config.temperature,
@@ -44,7 +47,7 @@ class OllamaLLM(BaseLLM):
             messages=messages,
             options=self._options,
         )
-        return response.message.content
+        return response["message"]["content"]
 
     def stream(self, prompt: str, system: str = "") -> Iterator[str]:
         messages = []
@@ -57,14 +60,13 @@ class OllamaLLM(BaseLLM):
             stream=True,
             options=self._options,
         ):
-            yield chunk.message.content
+            yield chunk["message"]["content"]
 
 
 # ── Anthropic ─────────────────────────────────────────────────────────────────
 
 class AnthropicLLM(BaseLLM):
     def __init__(self, config) -> None:
-        import anthropic
         self._client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         self._model = config.model if config.model != "llama3.2" else "claude-sonnet-4-6"
         self._temperature = config.temperature
@@ -98,7 +100,6 @@ class AnthropicLLM(BaseLLM):
 
 class GeminiLLM(BaseLLM):
     def __init__(self, config) -> None:
-        import google.generativeai as genai
         genai.configure(api_key=os.environ["GEMINI_API_KEY"])
         model_name = config.model if config.model != "llama3.2" else "gemini-1.5-flash"
         self._model = genai.GenerativeModel(

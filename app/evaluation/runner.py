@@ -1,5 +1,5 @@
-"""import datasets for evaluation from /data/eval_sets, 
-feed each pair to the entrypoint in order to obtain the generated result. 
+"""import datasets for evaluation from /data/eval_sets,
+feed each pair to the entrypoint in order to obtain the generated result.
 use call to LLM, prompt for evaluating the ground truth and generated answer.
 after all samples results collected build a report based on the logic from module report
 
@@ -8,15 +8,21 @@ CLI usage:
 """
 import argparse
 import logging
+import os
 from dataclasses import dataclass, field
 
 import httpx
 
-from app.evaluation.datasets import load_dataset, EvalQuestion
+import app.evaluation.metrics as M
+from app.core.config import get_config
+from app.evaluation.datasets import EvalQuestion, load_dataset
+from app.evaluation.report import generate_report
+from app.generation.llm import LLMFactory
+from app.ingestion.embeddings import EmbedderFactory
 
 logger = logging.getLogger("eval.runner")
 
-BASE_URL = "http://localhost:8080"
+BASE_URL: str = os.environ["API_BASE_URL"]
 
 
 @dataclass
@@ -52,11 +58,6 @@ class EvalResults:
 
 
 def run_evaluation(dataset_path: str, config=None) -> EvalResults:
-    from app.core.config import get_config
-    from app.ingestion.embeddings import EmbedderFactory
-    from app.generation.llm import LLMFactory
-    import app.evaluation.metrics as M
-
     cfg = config or get_config()
     embedder = EmbedderFactory.create(cfg)
     llm = LLMFactory.create(cfg)
@@ -113,6 +114,5 @@ if __name__ == "__main__":
     parser.add_argument("--output", default="docs/eval_report.md")
     args = parser.parse_args()
 
-    from app.evaluation.report import generate_report
     results = run_evaluation(args.dataset)
     generate_report(results, args.output)

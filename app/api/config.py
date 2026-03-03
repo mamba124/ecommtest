@@ -7,12 +7,35 @@ class ChunkingConfigBody(BaseModel):
     Live chunking parameters. Accepted by POST /config/chunking and stored in
     app.state.chunking_config. Changes take effect on the next /ingest call.
     No persistence between restarts — in-memory only.
+
+    Defaults are tuned for LLM API documentation: sections are dense and
+    self-contained (endpoint description + parameters + code example), so
+    chunks must be large enough to hold a complete concept without splitting
+    it mid-explanation.
     """
-    chunk_size: int = Field(default=500, gt=0, description="Max tokens per chunk")
-    chunk_overlap: int = Field(default=50, ge=0, description="Overlap between consecutive chunks")
+    chunk_size: int = Field(
+        default=1200,
+        gt=0,
+        description=(
+            "Maximum characters per chunk. 1200 fits a typical API section "
+            "(endpoint + parameters + one code example) without mid-concept splits."
+        ),
+    )
+    chunk_overlap: int = Field(
+        default=200,
+        ge=0,
+        description=(
+            "Characters of overlap between consecutive chunks (~17% of chunk_size). "
+            "Preserves sentences that straddle a chunk boundary so retrieval "
+            "does not miss bridging context."
+        ),
+    )
     separators: list[str] = Field(
-        default=["\n\n", "\n", "."],
-        description="Ordered list of split separators",
+        default=["\n\n## ", "\n\n### ", "\n\n", "\n", ". ", " ", ""],
+        description=(
+            "Ordered split hierarchy. Markdown heading boundaries are tried first "
+            "so splits happen at section edges rather than mid-paragraph."
+        ),
     )
 
 

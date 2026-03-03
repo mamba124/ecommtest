@@ -13,9 +13,9 @@ embeddings:
 
 chunking:
   strategy: "recursive"       # "recursive" | "fixed" | "semantic"
-  chunk_size: 500             # default per new spec (overridable via POST /config/chunking)
-  chunk_overlap: 50
-  separators: ["\n\n", "\n", "."]
+  chunk_size: 1200            # chars; fits one full API section without mid-concept splits
+  chunk_overlap: 200          # ~17% overlap preserves bridging sentences across boundaries
+  separators: ["\n\n## ", "\n\n### ", "\n\n", "\n", ". ", " ", ""]  # markdown headings first
 
 retrieval:
   top_k: 10                   # initial retrieval pool

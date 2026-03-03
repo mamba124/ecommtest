@@ -8,6 +8,10 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
+from app.core.config import get_config
+from app.evaluation.sample_generator import generate_dataset
+from app.generation.llm import LLMFactory
+
 logger = logging.getLogger("datasets")
 
 DATASET_PATH = "data/eval_sets/eval_dataset.json"
@@ -55,10 +59,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("--total", type=int, default=40, help="Total samples (divisible by 4)")
     args = parser.parse_args()
-
-    from app.core.config import get_config
-    from app.generation.llm import LLMFactory
-    from app.evaluation.sample_generator import generate_dataset
 
     config = get_config()
     llm = LLMFactory.create(config)
