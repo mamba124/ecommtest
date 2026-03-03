@@ -13,6 +13,8 @@ class LLMConfig(BaseModel):
     base_url: str
     temperature: float
     max_tokens: int
+    top_p: float = 0.9
+    repeat_penalty: float = 1.1
 
 
 class EmbeddingsConfig(BaseModel):

@@ -72,7 +72,7 @@ def run_evaluation(dataset_path: str, config=None) -> EvalResults:
                 resp.raise_for_status()
                 data = resp.json()
                 answer: str = data["answer"]
-                chunk_texts: list[str] = [c.get("chunk_id", "") for c in data.get("citations", [])]
+                chunk_texts: list[str] = [c.get("text", "") for c in data.get("citations", [])]
                 gt_ctx = item.ground_truth_context or ""
 
                 cp = M.context_precision(item.question, chunk_texts, gt_ctx)

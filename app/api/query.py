@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.api.models import Citation, QueryRequest, QueryResponse
-from app.generation.prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE, format_context
+from app.generation.prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE, VERIFICATION_PROMPT, format_context
 
 router = APIRouter()
 logger = logging.getLogger("query")
@@ -42,6 +42,7 @@ async def query(req: QueryRequest, request: Request):
             source=c.metadata.get("source", "unknown"),
             page=c.metadata.get("page"),
             score=c.score,
+            text=c.text,
         )
         for c in chunks
     ]
@@ -67,6 +68,17 @@ async def query(req: QueryRequest, request: Request):
     except Exception as exc:
         logger.error(f"LLM generation failed: {exc}")
         raise HTTPException(status_code=503, detail="LLM service unavailable")
+
+    # ── Verification pass ─────────────────────────────────────────────────────
+    if answer.strip().upper() != "INSUFFICIENT_CONTEXT":
+        try:
+            verification_prompt = VERIFICATION_PROMPT.format(context=context, answer=answer)
+            verdict = llm.generate(verification_prompt).strip()
+            if not verdict.upper().startswith("YES"):
+                logger.info(f"Verification rejected answer: {verdict[:120]}")
+                answer = "INSUFFICIENT_CONTEXT"
+        except Exception as exc:
+            logger.warning(f"Verification pass failed: {exc}")
 
     response = QueryResponse(answer=answer, citations=citations)
 

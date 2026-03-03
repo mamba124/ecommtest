@@ -23,6 +23,7 @@ class Citation(BaseModel):
     source: str
     page: Optional[int] = None
     score: float
+    text: str = ""
 
 
 class QueryRequest(BaseModel):

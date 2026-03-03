@@ -1,10 +1,15 @@
 """
-Scraper utility — fetches Anthropic documentation pages and saves them as Markdown.
+Scraper utility — fetches documentation pages and saves them as Markdown.
 
 URL discovery strategy (in order):
   1. Request /sitemap.xml → parse every <loc> that starts with ALLOWED_PREFIX.
   2. If sitemap is absent or yields no matching URLs, fall back to BFS link-following
      starting from the root docs page.
+
+Page rendering strategy:
+  1. Playwright (headless Chromium) — handles JavaScript-rendered (SPA/CSR) pages.
+     Waits for networkidle + article/main selector before extracting HTML.
+  2. httpx fallback — used when Playwright is unavailable (server-rendered pages only).
 """
 import logging
 import time
@@ -16,15 +21,28 @@ import httpx
 from bs4 import BeautifulSoup
 import html2text
 
+try:
+    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+    _PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    _PLAYWRIGHT_AVAILABLE = False
+
 logger = logging.getLogger("scraper")
 
-REQUEST_DELAY = 0.5          # seconds between requests
+REQUEST_DELAY = 0.5          # seconds between requests (polite crawling)
 DEFAULT_ALLOWED_PREFIX = "/en/docs/"
 SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
+_MIN_CONTENT_CHARS = 200     # pages shorter than this are likely JS placeholders
 
 
 class DocScraper:
-    def __init__(self, base_url: str, output_dir: str, max_pages: int = 50) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        output_dir: str,
+        max_pages: int = 50,
+        use_playwright: bool = True,
+    ) -> None:
         self._base_url = base_url.rstrip("/")
         self._allowed_prefix = DEFAULT_ALLOWED_PREFIX
         self._output_dir = Path(output_dir)
@@ -33,6 +51,14 @@ class DocScraper:
         self._converter = html2text.HTML2Text()
         self._converter.ignore_links = False
         self._converter.body_width = 0
+        self._use_playwright = use_playwright and _PLAYWRIGHT_AVAILABLE
+
+        if use_playwright and not _PLAYWRIGHT_AVAILABLE:
+            logger.warning(
+                "playwright package not installed — falling back to httpx. "
+                "JS-rendered pages (SPA/CSR) will likely return placeholder text. "
+                "Install with: pip install playwright && playwright install chromium"
+            )
 
     # ── Redirect resolution ───────────────────────────────────────────────────
 
@@ -137,28 +163,107 @@ class DocScraper:
             pass
         return True
 
+    # ── Page fetching backends ────────────────────────────────────────────────
+
+    def _fetch_html_httpx(self, url: str, client: httpx.Client) -> str:
+        resp = client.get(url, timeout=30.0)
+        resp.raise_for_status()
+        return resp.text
+
+    def _fetch_html_playwright(self, url: str, pw_page) -> str:
+        """
+        Navigate to *url* with an already-open Playwright page.
+        Waits for networkidle to let JS finish rendering, then waits for
+        an article or main element to appear (content sentinel).
+        Returns the fully-rendered page HTML.
+        """
+        pw_page.goto(url, wait_until="networkidle", timeout=30_000)
+        # Give the content sentinel up to 10 s to appear
+        try:
+            pw_page.wait_for_selector("article, main", timeout=10_000)
+        except PlaywrightTimeout:
+            logger.debug(f"Timed out waiting for article/main on {url}")
+        return pw_page.content()
+
+    # ── Shared fetch loop ─────────────────────────────────────────────────────
+
+    def _run_fetch_loop(
+        self,
+        queue: list[str],
+        sitemap_urls: list[str],
+        *,
+        pw_page=None,
+        http_client: httpx.Client | None = None,
+    ) -> int:
+        """
+        Main crawl loop shared by both rendering backends.
+        Pass either *pw_page* (Playwright) or *http_client* (httpx).
+        """
+        saved = 0
+        while queue and len(self._visited) < self._max_pages:
+            url = queue.pop(0)
+            if url in self._visited:
+                continue
+            self._visited.add(url)
+
+            try:
+                if pw_page is not None:
+                    html = self._fetch_html_playwright(url, pw_page)
+                else:
+                    html = self._fetch_html_httpx(url, http_client)
+
+                content = self._extract_content(html)
+
+                if len(content.strip()) < _MIN_CONTENT_CHARS:
+                    logger.warning(
+                        f"Skipping {url} — extracted content is only "
+                        f"{len(content.strip())} chars (likely a JS placeholder). "
+                        "Consider running with Playwright enabled."
+                    )
+                    continue
+
+                out = self._output_dir / f"{self._slug(url)}.md"
+                out.write_text(content, encoding="utf-8")
+                saved += 1
+                logger.info(f"Saved {url} → {out}")
+
+                # In BFS fallback mode, discover links from each fetched page
+                if not sitemap_urls:
+                    for link in self._find_links(html, url):
+                        if link not in self._visited:
+                            queue.append(link)
+
+                time.sleep(REQUEST_DELAY)
+
+            except Exception as exc:
+                logger.error(f"Failed to scrape {url}: {exc}")
+
+        return saved
+
     # ── Main entry point ──────────────────────────────────────────────────────
 
     def scrape(self) -> int:
         """
-        Scrape docs and return number of pages saved.
+        Scrape docs and return the number of pages saved.
 
-        Discovery order:
+        Phase 1 — URL discovery (always httpx, lightweight):
           1. /sitemap.xml  — parse <loc> entries matching ALLOWED_PREFIX.
           2. BFS fallback  — follow <a href> links starting from the root page.
+
+        Phase 2 — Content fetching:
+          1. Playwright (headless Chromium) if available and use_playwright=True.
+          2. httpx fallback otherwise.
         """
         self._output_dir.mkdir(parents=True, exist_ok=True)
-        saved = 0
 
+        # ── Phase 1: URL discovery ────────────────────────────────────────────
         with httpx.Client(timeout=30.0, follow_redirects=True) as client:
-            # Resolve any permanent redirect on the docs root before filtering
             self._resolve_redirect(client)
 
             if not self._robots_ok(client):
                 logger.error("Scraping aborted per robots.txt")
                 return 0
 
-            # Step 1 — try sitemap
             sitemap_urls = self._fetch_sitemap(client)
 
             if sitemap_urls:
@@ -168,34 +273,23 @@ class DocScraper:
                     f"(max_pages={self._max_pages})"
                 )
             else:
-                # Step 2 — fall back to BFS from root
                 queue = [f"{self._base_url}{self._allowed_prefix}"]
                 logger.info("Sitemap unavailable — falling back to BFS link-following")
 
-            while queue and len(self._visited) < self._max_pages:
-                url = queue.pop(0)
-                if url in self._visited:
-                    continue
-                self._visited.add(url)
-
+        # ── Phase 2: Content fetching ─────────────────────────────────────────
+        if self._use_playwright:
+            logger.info("Rendering with Playwright (headless Chromium)")
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page()
                 try:
-                    resp = client.get(url)
-                    resp.raise_for_status()
-                    content = self._extract_content(resp.text)
-                    out = self._output_dir / f"{self._slug(url)}.md"
-                    out.write_text(content, encoding="utf-8")
-                    saved += 1
-                    logger.info(f"Saved {url} → {out}")
-
-                    # In BFS fallback mode, also discover links from each fetched page
-                    if not sitemap_urls:
-                        for link in self._find_links(resp.text, url):
-                            if link not in self._visited:
-                                queue.append(link)
-
-                    time.sleep(REQUEST_DELAY)
-                except Exception as exc:
-                    logger.error(f"Failed to scrape {url}: {exc}")
+                    saved = self._run_fetch_loop(queue, sitemap_urls, pw_page=page)
+                finally:
+                    browser.close()
+        else:
+            logger.info("Fetching with httpx (Playwright unavailable or disabled)")
+            with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+                saved = self._run_fetch_loop(queue, sitemap_urls, http_client=client)
 
         logger.info(f"Scraping complete: {saved} pages saved to {self._output_dir}")
         return saved

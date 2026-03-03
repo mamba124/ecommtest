@@ -35,6 +35,8 @@ class OllamaLLM(BaseLLM):
         self._options = {
             "temperature": config.temperature,
             "num_predict": config.max_tokens,
+            "top_p": config.top_p,
+            "repeat_penalty": config.repeat_penalty,
         }
 
     def generate(self, prompt: str, system: str = "") -> str:

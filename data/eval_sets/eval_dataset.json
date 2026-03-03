@@ -2,141 +2,288 @@
   {
     "id": "q001",
     "type": "factual",
-    "question": "What is the maximum number of tools you can pass in a single API request to Claude?",
-    "ground_truth_answer": "You can pass up to 128 tools in a single API request.",
-    "ground_truth_context": "The maximum number of tools that can be defined in a single API request is 128."
+    "question": "What is the purpose of the golden rule in prompt engineering?",
+    "ground_truth_answer": "The golden rule is to show your prompt to a colleague with minimal context on the task and ask them to follow it.",
+    "ground_truth_context": "Be clear and direct"
   },
   {
     "id": "q002",
     "type": "factual",
-    "question": "What model identifier is used for Claude Sonnet 4.6?",
-    "ground_truth_answer": "The model ID for Claude Sonnet 4.6 is claude-sonnet-4-6.",
-    "ground_truth_context": "claude-sonnet-4-6 is the model ID for Claude Sonnet 4.6."
+    "question": "What is the recommended format for providing instructions in Claude prompts?",
+    "ground_truth_answer": "Use numbered lists or bullet points when the order or completeness of steps matters.",
+    "ground_truth_context": "Be specific about the desired output format and constraints."
   },
   {
     "id": "q003",
     "type": "factual",
-    "question": "What is the default context window size for Claude models?",
-    "ground_truth_answer": "Claude models support a 200,000 token context window.",
-    "ground_truth_context": "Claude supports a 200,000 token context window across its model family."
+    "question": "What is the benefit of providing context or motivation behind instructions in Claude prompts?",
+    "ground_truth_answer": "Providing context can help Claude better understand your goals and deliver more targeted responses.",
+    "ground_truth_context": "Providing context or motivation behind your instructions, such as explaining to Claude why such behavior is important, can help Claude better understand your goals and deliver more targeted responses."
   },
   {
     "id": "q004",
     "type": "factual",
-    "question": "What HTTP method is used to send a message to the Claude Messages API?",
-    "ground_truth_answer": "The Messages API uses the POST HTTP method.",
-    "ground_truth_context": "To send a message, make a POST request to the /v1/messages endpoint."
+    "question": "What is the recommended number of examples to include in a prompt?",
+    "ground_truth_answer": "Include 3–5 examples for best results.",
+    "ground_truth_context": "You can also ask Claude to evaluate your examples for relevance and diversity, or to generate additional ones based on your initial set."
   },
   {
     "id": "q005",
     "type": "factual",
-    "question": "What is the role name used for human turns in the Messages API?",
-    "ground_truth_answer": "Human turns use the role name 'user'.",
-    "ground_truth_context": "In the Messages API, conversation turns alternate between 'user' and 'assistant' roles."
+    "question": "What is the purpose of using XML tags in Claude prompts?",
+    "ground_truth_answer": "XML tags help Claude parse complex prompts unambiguously, especially when your prompt mixes instructions, context, examples, and variable input.",
+    "ground_truth_context": "XML tags help Claude parse complex prompts unambiguously, especially when your prompt mixes instructions, context, examples, and variable input."
   },
   {
     "id": "q006",
     "type": "factual",
-    "question": "What format does Claude use to return structured tool call results?",
-    "ground_truth_answer": "Claude returns tool use results as tool_use content blocks containing the tool name and input.",
-    "ground_truth_context": "When Claude decides to use a tool it returns a tool_use content block with the tool name and input parameters."
+    "question": "What is the benefit of using examples in Claude prompts?",
+    "ground_truth_answer": "Examples are one of the most reliable ways to steer Claude's output format, tone, and structure.",
+    "ground_truth_context": "Examples are one of the most reliable ways to steer Claude's output format, tone, and structure."
   },
   {
     "id": "q007",
     "type": "factual",
-    "question": "What is the name of Anthropic's safety principle that guides Claude's behavior?",
-    "ground_truth_answer": "Anthropic's safety principle is called Constitutional AI.",
-    "ground_truth_context": "Anthropic developed Constitutional AI as a technique to make AI systems safer and more helpful."
+    "question": "What is the recommended way to structure examples in Claude prompts?",
+    "ground_truth_answer": "Wrap examples in <example> tags (multiple examples in <examples> tags) so Claude can distinguish them from instructions.",
+    "ground_truth_context": "Wrap examples in <example> tags (multiple examples in <examples> tags) so Claude can distinguish them from instructions."
   },
   {
     "id": "q008",
     "type": "factual",
-    "question": "What streaming mechanism does the Claude API use to return tokens progressively?",
-    "ground_truth_answer": "The Claude API uses Server-Sent Events (SSE) for streaming responses.",
-    "ground_truth_context": "Claude supports streaming via Server-Sent Events, sending incremental tokens as content_block_delta events."
+    "question": "What is the purpose of providing instructions as sequential steps in Claude prompts?",
+    "ground_truth_answer": "Provide instructions as sequential steps using numbered lists or bullet points when the order or completeness of steps matters.",
+    "ground_truth_context": "Provide instructions as sequential steps using numbered lists or bullet points when the order or completeness of steps matters."
   },
   {
     "id": "q009",
-    "type": "multi_hop",
-    "question": "How do tool use and system prompts work together to constrain Claude's behavior?",
-    "ground_truth_answer": "System prompts define Claude's persona and rules while tool definitions limit available actions. Together they scope what Claude can say and do.",
-    "ground_truth_context": "System prompts establish behavioral guidelines. Tool definitions tell Claude which functions it may call. The combination creates a bounded agent."
+    "type": "factual",
+    "question": "What is the benefit of using Claude's latest models, such as Claude Opus 4.6, Claude Sonnet 4.6, and Claude Haiku 4.5?",
+    "ground_truth_answer": "These models cover foundational techniques, output control, tool use, thinking, and agentic systems.",
+    "ground_truth_context": "This is the single reference for prompt engineering with Claude's latest models, including Claude Opus 4.6, Claude Sonnet 4.6, and Claude Haiku 4.5."
   },
   {
     "id": "q010",
-    "type": "multi_hop",
-    "question": "What steps are required to implement a complete tool-use loop with Claude?",
-    "ground_truth_answer": "1. Define tools in the API call. 2. Claude returns a tool_use block. 3. Execute the tool locally. 4. Send a tool_result block back. 5. Claude generates a final response.",
-    "ground_truth_context": "Tool use requires: defining tools, detecting tool_use in response, executing locally, returning tool_result in a subsequent message, then receiving the final answer."
+    "type": "factual",
+    "question": "What is the recommended way to ask Claude to evaluate examples for relevance and diversity?",
+    "ground_truth_answer": "You can ask Claude to evaluate your examples for relevance and diversity, or to generate additional ones based on your initial set.",
+    "ground_truth_context": "You can also ask Claude to evaluate your examples for relevance and diversity, or to generate additional ones based on your initial set."
   },
   {
     "id": "q011",
     "type": "multi_hop",
-    "question": "How does prompt caching interact with streaming to reduce latency for repeated queries?",
-    "ground_truth_answer": "Prompt caching stores the KV cache of a prefix. When streaming, if the prefix hits the cache the first tokens arrive faster since the prefix does not need re-processing.",
-    "ground_truth_context": "Prompt caching allows reuse of computed KV states for repeated prefixes. Combined with streaming, this reduces time-to-first-token for cached portions."
+    "question": "What is the primary benefit of using XML tags in Claude prompts?",
+    "ground_truth_answer": "XML tags help Claude parse complex prompts unambiguously.",
+    "ground_truth_context": "XML tags help Claude parse complex prompts unambiguously, especially when your prompt mixes instructions, context, examples, and variable input."
   },
   {
     "id": "q012",
     "type": "multi_hop",
-    "question": "What considerations apply when using both vision inputs and tool calls in a single Claude request?",
-    "ground_truth_answer": "Images are passed as image content blocks alongside text. Tools are defined separately. Claude can reason over both simultaneously but image tokens count toward context limits.",
-    "ground_truth_context": "Vision inputs use base64-encoded image content blocks. Tool definitions are separate. Both contribute to token counts and Claude can use tools informed by image content."
+    "question": "How can providing context improve Claude's performance?",
+    "ground_truth_answer": "Providing context or motivation behind your instructions can help Claude better understand your goals and deliver more targeted responses.",
+    "ground_truth_context": "Providing context or motivation behind your instructions, such as explaining to Claude why such behavior is important, can help Claude better understand your goals and deliver more targeted responses."
   },
   {
     "id": "q013",
-    "type": "unanswerable",
-    "question": "What is Claude's monthly active user count as of 2025?",
-    "ground_truth_answer": "UNANSWERABLE",
-    "ground_truth_context": null
+    "type": "multi_hop",
+    "question": "What is the recommended approach for structuring prompts with XML tags?",
+    "ground_truth_answer": "Use XML tags to wrap examples in <example> tags (multiple examples in <examples> tags) so Claude can distinguish them from instructions.",
+    "ground_truth_context": "XML tags help Claude parse complex prompts unambiguously, especially when your prompt mixes instructions, context, examples, and variable input."
   },
   {
     "id": "q014",
-    "type": "unanswerable",
-    "question": "What is the internal training data cutoff date for Claude Opus 4?",
-    "ground_truth_answer": "UNANSWERABLE",
-    "ground_truth_context": null
+    "type": "multi_hop",
+    "question": "How can adding examples improve Claude's output?",
+    "ground_truth_answer": "A few well-crafted examples (known as few-shot or multishot prompting) can dramatically improve accuracy and consistency.",
+    "ground_truth_context": "Examples are one of the most reliable ways to steer Claude's output format, tone, and structure."
   },
   {
     "id": "q015",
-    "type": "unanswerable",
-    "question": "How many GPUs does Anthropic use in its training cluster?",
-    "ground_truth_answer": "UNANSWERABLE",
-    "ground_truth_context": null
+    "type": "multi_hop",
+    "question": "What is the purpose of providing instructions as sequential steps?",
+    "ground_truth_answer": "Provide instructions as sequential steps using numbered lists or bullet points when the order or completeness of steps matters.",
+    "ground_truth_context": "Claude responds well to clear, explicit instructions. Being specific about your desired output can help enhance results."
   },
   {
     "id": "q016",
+    "type": "multi_hop",
+    "question": "How can using examples effectively improve Claude's performance?",
+    "ground_truth_answer": "Examples should be relevant, diverse, and structured to help Claude generalize from the explanation.",
+    "ground_truth_context": "Examples are one of the most reliable ways to steer Claude's output format, tone, and structure."
+  },
+  {
+    "id": "q017",
+    "type": "multi_hop",
+    "question": "What is the benefit of using Claude's latest models, such as Claude Opus 4.6, Claude Sonnet 4.6, and Claude Haiku 4.5?",
+    "ground_truth_answer": "These models cover foundational techniques, output control, tool use, thinking, and agentic systems.",
+    "ground_truth_context": "This is the single reference for prompt engineering with Claude's latest models, including Claude Opus 4.6, Claude Sonnet 4.6, and Claude Haiku 4.5."
+  },
+  {
+    "id": "q018",
+    "type": "multi_hop",
+    "question": "How can providing context or motivation behind instructions improve Claude's performance?",
+    "ground_truth_answer": "Providing context or motivation behind your instructions can help Claude better understand your goals and deliver more targeted responses.",
+    "ground_truth_context": "Providing context or motivation behind your instructions, such as explaining to Claude why such behavior is important, can help Claude better understand your goals and deliver more targeted responses."
+  },
+  {
+    "id": "q019",
+    "type": "multi_hop",
+    "question": "What is the recommended approach for structuring prompts to improve accuracy?",
+    "ground_truth_answer": "Use XML tags to wrap examples in <example> tags (multiple examples in <examples> tags) so Claude can distinguish them from instructions.",
+    "ground_truth_context": "XML tags help Claude parse complex prompts unambiguously, especially when your prompt mixes instructions, context, examples, and variable input."
+  },
+  {
+    "id": "q020",
+    "type": "multi_hop",
+    "question": "How can using examples effectively improve Claude's output?",
+    "ground_truth_answer": "A few well-crafted examples (known as few-shot or multishot prompting) can dramatically improve accuracy and consistency.",
+    "ground_truth_context": "Examples are one of the most reliable ways to steer Claude's output format, tone, and structure."
+  },
+  {
+    "id": "q021",
     "type": "unanswerable",
-    "question": "What is Anthropic's annual revenue for fiscal year 2024?",
+    "question": "What is Claude's favourite colour?",
     "ground_truth_answer": "UNANSWERABLE",
     "ground_truth_context": null
   },
   {
-    "id": "q017",
-    "type": "paraphrased",
-    "question": "How many tools at most can be included in one call to the Claude API?",
-    "ground_truth_answer": "Up to 128 tools can be included in a single Claude API call.",
-    "ground_truth_context": "The maximum number of tools that can be defined in a single API request is 128."
+    "id": "q022",
+    "type": "unanswerable",
+    "question": "What is the primary use of XML tags in Claude prompts?",
+    "ground_truth_answer": "UNANSWERABLE",
+    "ground_truth_context": null
   },
   {
-    "id": "q018",
-    "type": "paraphrased",
-    "question": "Which HTTP verb should I use when calling the Claude Messages endpoint?",
-    "ground_truth_answer": "You should use the POST verb when calling the Claude Messages endpoint.",
-    "ground_truth_context": "To send a message, make a POST request to the /v1/messages endpoint."
+    "id": "q023",
+    "type": "unanswerable",
+    "question": "Can Claude be used for natural language translation?",
+    "ground_truth_answer": "UNANSWERABLE",
+    "ground_truth_context": null
   },
   {
-    "id": "q019",
-    "type": "paraphrased",
-    "question": "What is the token limit for the context window supported by Claude?",
-    "ground_truth_answer": "Claude supports a context window of up to 200,000 tokens.",
-    "ground_truth_context": "Claude supports a 200,000 token context window across its model family."
+    "id": "q024",
+    "type": "unanswerable",
+    "question": "What is the difference between Claude Opus 4.6 and Claude Sonnet 4.6?",
+    "ground_truth_answer": "UNANSWERABLE",
+    "ground_truth_context": null
   },
   {
-    "id": "q020",
+    "id": "q025",
+    "type": "unanswerable",
+    "question": "Can Claude be used for generating poetry?",
+    "ground_truth_answer": "UNANSWERABLE",
+    "ground_truth_context": null
+  },
+  {
+    "id": "q026",
+    "type": "unanswerable",
+    "question": "What is the purpose of the Migration guide?",
+    "ground_truth_answer": "UNANSWERABLE",
+    "ground_truth_context": null
+  },
+  {
+    "id": "q027",
+    "type": "unanswerable",
+    "question": "Can Claude be used for generating music?",
+    "ground_truth_answer": "UNANSWERABLE",
+    "ground_truth_context": null
+  },
+  {
+    "id": "q028",
+    "type": "unanswerable",
+    "question": "What is the relationship between Claude and agentic systems?",
+    "ground_truth_answer": "UNANSWERABLE",
+    "ground_truth_context": null
+  },
+  {
+    "id": "q029",
+    "type": "unanswerable",
+    "question": "Can Claude be used for generating images?",
+    "ground_truth_answer": "UNANSWERABLE",
+    "ground_truth_context": null
+  },
+  {
+    "id": "q030",
+    "type": "unanswerable",
+    "question": "What is the difference between Claude Haiku 4.5 and Claude Opus 4.6?",
+    "ground_truth_answer": "UNANSWERABLE",
+    "ground_truth_context": null
+  },
+  {
+    "id": "q031",
+    "type": "unanswerable",
+    "question": "Can Claude be used for generating videos?",
+    "ground_truth_answer": "UNANSWERABLE",
+    "ground_truth_context": null
+  },
+  {
+    "id": "q032",
     "type": "paraphrased",
-    "question": "What event format does the Anthropic API use to push tokens to the client as they are generated?",
-    "ground_truth_answer": "The Anthropic API uses Server-Sent Events (SSE) to push tokens to the client.",
-    "ground_truth_context": "Claude supports streaming via Server-Sent Events, sending incremental tokens as content_block_delta events."
+    "question": "What is the best way to ensure Claude responds accurately to clear instructions?",
+    "ground_truth_answer": "Be clear and direct",
+    "ground_truth_context": "Claude responds well to clear, explicit instructions."
+  },
+  {
+    "id": "q033",
+    "type": "paraphrased",
+    "question": "How can providing context improve Claude's performance?",
+    "ground_truth_answer": "Providing context or motivation behind your instructions can help Claude better understand your goals and deliver more targeted responses.",
+    "ground_truth_context": "Providing context or motivation behind your instructions, such as explaining to Claude why such behavior is important, can help Claude better understand your goals and deliver more targeted responses."
+  },
+  {
+    "id": "q034",
+    "type": "paraphrased",
+    "question": "What is the benefit of using examples in Claude prompts?",
+    "ground_truth_answer": "Examples are one of the most reliable ways to steer Claude's output format, tone, and structure.",
+    "ground_truth_context": "Examples are one of the most reliable ways to steer Claude's output format, tone, and structure."
+  },
+  {
+    "id": "q035",
+    "type": "paraphrased",
+    "question": "How can structured prompts with XML tags improve Claude's understanding?",
+    "ground_truth_answer": "XML tags help Claude parse complex prompts unambiguously, especially when your prompt mixes instructions, context, examples, and variable input.",
+    "ground_truth_context": "XML tags help Claude parse complex prompts unambiguously, especially when your prompt mixes instructions, context, examples, and variable input."
+  },
+  {
+    "id": "q036",
+    "type": "paraphrased",
+    "question": "What is the importance of providing relevant and diverse examples in Claude prompts?",
+    "ground_truth_answer": "When adding examples, make them relevant, diverse, and structured so Claude can distinguish them from instructions.",
+    "ground_truth_context": "When adding examples, make them relevant, diverse, and structured so Claude can distinguish them from instructions."
+  },
+  {
+    "id": "q037",
+    "type": "paraphrased",
+    "question": "How can using a clear and direct prompt style improve Claude's output?",
+    "ground_truth_answer": "Claude responds well to clear, explicit instructions.",
+    "ground_truth_context": "Claude responds well to clear, explicit instructions."
+  },
+  {
+    "id": "q038",
+    "type": "paraphrased",
+    "question": "What is the benefit of providing instructions as sequential steps?",
+    "ground_truth_answer": "Provide instructions as sequential steps using numbered lists or bullet points when the order or completeness of steps matters.",
+    "ground_truth_context": "Provide instructions as sequential steps using numbered lists or bullet points when the order or completeness of steps matters."
+  },
+  {
+    "id": "q039",
+    "type": "paraphrased",
+    "question": "How can providing motivation behind instructions improve Claude's performance?",
+    "ground_truth_answer": "Providing context or motivation behind your instructions can help Claude better understand your goals and deliver more targeted responses.",
+    "ground_truth_context": "Providing context or motivation behind your instructions, such as explaining to Claude why such behavior is important, can help Claude better understand your goals and deliver more targeted responses."
+  },
+  {
+    "id": "q040",
+    "type": "paraphrased",
+    "question": "What is the importance of structuring prompts with XML tags?",
+    "ground_truth_answer": "XML tags help Claude parse complex prompts unambiguously, especially when your prompt mixes instructions, context, examples, and variable input.",
+    "ground_truth_context": "XML tags help Claude parse complex prompts unambiguously, especially when your prompt mixes instructions, context, examples, and variable input."
+  },
+  {
+    "id": "q041",
+    "type": "paraphrased",
+    "question": "How can using a few-shot prompting approach improve Claude's accuracy?",
+    "ground_truth_answer": "A few well-crafted examples can dramatically improve accuracy and consistency.",
+    "ground_truth_context": "A few well-crafted examples can dramatically improve accuracy and consistency."
   }
 ]

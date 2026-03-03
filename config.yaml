@@ -1,9 +1,11 @@
 llm:
-  provider: "ollama"          # "ollama" | "gemini" | "anthropic"
+  provider: "anthropic"       # "ollama" | "gemini" | "anthropic"
   model: "llama3.2"
   base_url: "http://ollama:11434"
-  temperature: 0.1
-  max_tokens: 1024
+  temperature: 0.0
+  max_tokens: 4096
+  top_p: 0.9
+  repeat_penalty: 1.1
 
 embeddings:
   provider: "ollama"          # "ollama" | "sentence_transformers"
